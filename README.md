@@ -1,6 +1,6 @@
 # XOR Hash Collision Generator
 
-The paper [A New Paradigm for Collision-free Hashing: Incrementality at Reduced Cost](https://cseweb.ucsd.edu/~mihir/papers/inc-hash.pdf) by Mihir Bellare and Daniele Micciancio described a gaussian elimination attack on an incremental hash function they called XHASH. I couldn't find an actual implementation of that attack anywhere, so I built one.
+The paper [A New Paradigm for Collision-free Hashing: Incrementality at Reduced Cost](https://cseweb.ucsd.edu/~mihir/papers/inc-hash.pdf) by Mihir Bellare and Daniele Micciancio described a GF(2) gaussian elimination attack on an incremental hash function they called XHASH. I couldn't find an actual implementation of that attack anywhere, so I built one.
 
 ## Concept
 
@@ -22,7 +22,7 @@ The values in parentheses are the input values, and the long hex values are thei
 
 If we bitwise XOR the first bytes of these hashes together, we get our target value of `fd`:
 
-    $ perl -E 'say sprintf("%x", 0x6b ^ 0xef ^ 0x79)'
+    $ perl -e 'printf("%x\n", 0x6b ^ 0xef ^ 0x79)'
     fd
 
 In this repo there's also a convenience script for XORing together values from standard input, one per line:
@@ -53,15 +53,15 @@ First we try to find a vector basis. To do this, we generate `2N` input values, 
 
 For convenience, to generate input values we are just using sequential integers (stringifed in ASCII decimal). With a small modification to the script, any arbitrary values could be used instead. Or, alternatively, you could use pre-existing items if it is not possible to insert your own.
 
-Next we hash each input value and format it as a vector where each element is a bit of the hash. These vectors are then put into a `2N x N` matrix, one input hash per row, and then converted into reduced row echelon form using gaussian elimination. The field GF(2) is used, which means XOR is substituted for addition. I adapted a gaussian elimination [routine](https://github.com/flavioeverardo/gauss_jordan_elimination) written by Flavio Everardo for this.
+Next we hash each input value and format it as a vector where each element is a bit of the hash. These vectors are then put into a `2N x N` matrix, one input hash per row, and then converted into reduced row echelon form using gaussian elimination. The field GF(2) is used, which means XOR is substituted for addition. I adapted a gaussian elimination [sub-routine](https://github.com/flavioeverardo/gauss_jordan_elimination) written by Flavio Everardo for this.
 
-When performing the gaussian elimination, every time a row is swapped, we track its new position in the matrix so we can recover the original input. Afterwards, we collect the first `N` rows from the matrix, skipping over any all-zero rows (they were not linearly independent, so cannot be used for our basis), and recover the corresponding original input rows.
+When performing the gaussian elimination, every time a row is swapped, we track its new position in the matrix so we can recover the original input. Afterwards, we collect the first `N` rows from the matrix, skipping over any all-zero rows (they were not linearly independent of the other rows, so cannot be used for our basis), and recover the corresponding original input rows.
 
 These `N` rows represent our basis, and can be used to generate collisions for any target value.
 
 ### Building the collision
 
-The `N` basis rows are put into a new matrix, and this matrix is then transposed. Note that if a matrix's rows are linearly independent, then so are its columns. The target value is appended as an additional column, resulting in an `N x (N+1)` augmented matrix.
+The `N` basis rows are put into a new matrix, and this matrix is then transposed. Note that if a square matrix's rows are linearly independent, then so are its columns. The target value is appended as an additional column, resulting in an `N x (N+1)` augmented matrix.
 
 Next, another GF(2) gaussian elimination is run. The augmented column now indicates which items from our basis should be included. For each row, the item at the corresponding index should only be included if the entry in the augmented column is `1`. The included items are output, along with their hashes.
 
